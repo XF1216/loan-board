@@ -1,0 +1,5 @@
+/*
+  Access-Control-Allow-Origin: *
+  Content-Security-Policy: frame-ancestors *
+  X-Content-Type-Options: nosniff
+  ! X-Frame-Options

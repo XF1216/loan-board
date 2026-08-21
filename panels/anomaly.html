@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>城市借款异常分析</title>
+<style>
+:root {
+  --hb-bg:#f5f5f7; --hb-soft-bg:#fbfbfd;
+  --hb-surface:rgba(255,255,255,0.82); --hb-surface-strong:rgba(255,255,255,0.94);
+  --hb-text:#1d1d1f; --hb-sub:#6e6e73; --hb-mute:#8e8e93;
+  --hb-line:rgba(60,60,67,0.08);
+  --hb-danger:#ff453a; --hb-ok:#30d158; --hb-warn:#ff9f0a;
+  --hb-progress-yellow:#ffc300; --hb-progress-green:#12b981; --hb-progress-blue:#0a84ff;
+  --hb-yellow:#ffc300; --hb-yellow-soft:#ffd60a;
+  --hb-shadow:0 1px 2px rgba(15,23,42,0.03), 0 14px 34px rgba(15,23,42,0.07);
+  --hb-shadow-y:0 1px 2px rgba(255,195,0,0.12), 0 14px 30px rgba(255,214,10,0.16);
+  --ink:var(--hb-text); --muted:var(--hb-sub); --line:var(--hb-line);
+  --card:var(--hb-surface-strong);
+  --teal:var(--hb-yellow); --teal-dark:var(--hb-text); --sky:var(--hb-progress-blue);
+  --up:var(--hb-danger); --down:var(--hb-ok); --flat:var(--hb-mute);
+  --bg:transparent; --sum:rgba(255,214,10,0.12);
+  --high:var(--hb-danger); --mid:var(--hb-warn); --low:var(--hb-ok);
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; color:var(--hb-text); background:transparent;
+  font-family:"PingFang SC","Segoe UI","Microsoft YaHei",sans-serif;
+}
+.wrap { max-width:none; margin:0 auto; padding:12px 14px 24px; }
+.card {
+  background:var(--hb-surface-strong); border:1px solid var(--hb-line);
+  border-radius:10px; overflow:hidden; box-shadow:var(--hb-shadow);
+  backdrop-filter:blur(12px);
+  transition:transform .15s,border-color .15s,box-shadow .15s;
+}
+.card:hover { transform:translateY(-1px); border-color:rgba(255,195,0,0.55); box-shadow:var(--hb-shadow-y); }
+.card-head { padding:16px 22px 12px; border-bottom:1px solid var(--hb-line); }
+.card-head h1 {
+  margin:0 0 12px; font-size:1.25rem; font-weight:720; letter-spacing:-.02em;
+  display:inline-flex; align-items:center; flex-wrap:wrap; gap:8px;
+}
+.card-head h1::before {
+  content:""; width:4px; height:18px; border-radius:2px; flex:0 0 auto;
+  background:linear-gradient(180deg,var(--hb-yellow-soft),var(--hb-yellow));
+}
+.card-head h1 .asof { font-size:1rem; font-weight:600; color:var(--hb-mute); }
+.card-head h1 .asof-total { font-size:1rem; font-weight:700; color:var(--hb-text); margin-left:10px; }
+.card-head h1 .asof-total em { font-style:normal; color:var(--hb-text); }
+.toolbar { display:flex; flex-wrap:wrap; gap:12px 14px; align-items:end; }
+.toolbar label { display:block; font-size:.75rem; color:var(--hb-mute); margin-bottom:4px; }
+.toolbar select, .toolbar input[type=date] {
+  min-width:148px; height:34px; padding:0 10px; border:1px solid var(--hb-line);
+  border-radius:8px; font:inherit; background:#fff; color:var(--hb-text);
+}
+.toolbar select:focus, .toolbar input[type=date]:focus {
+  outline:none; border-color:rgba(255,195,0,0.7); box-shadow:0 0 0 3px rgba(255,214,10,0.18);
+}
+.toolbar .date-fixed {
+  min-width:148px; height:34px; padding:7px 10px; border:1px solid var(--hb-line);
+  border-radius:8px; font:inherit; background:rgba(251,251,253,0.9); color:var(--hb-sub);
+  box-sizing:border-box; line-height:1.25;
+}
+.toolbar button {
+  border:0; border-radius:8px; padding:8px 14px; font:inherit; font-weight:650; cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+}
+.toolbar button:hover { transform:translateY(-1px); }
+.toolbar .btn-query { background:var(--hb-yellow); color:var(--hb-text); box-shadow:0 1px 2px rgba(255,195,0,0.25); }
+.toolbar .btn-reset { background:rgba(60,60,67,0.05); color:var(--hb-text); }
+.toolbar .hint { font-size:.78rem; color:var(--hb-mute); padding-bottom:6px; }
+.risk-guide-bar {
+  margin-top:12px; padding:10px 12px; border:1px solid var(--hb-line);
+  background:rgba(255,255,255,0.55); border-radius:8px; color:var(--hb-sub);
+  font-size:.78rem; line-height:1.55;
+}
+.risk-guide-bar b { color:var(--hb-danger); }
+tr.total-row td.col-tip {
+  color:var(--hb-sub); font-size:.72rem; font-weight:500; line-height:1.35;
+  white-space:normal; text-align:left; vertical-align:middle;
+}
+tr.total-row td.col-tip b { color:var(--hb-text); font-weight:650; }
+td.num[title], td.sumcol[title], td.prev[title], .asof-total em[title],
+.up[title], .down[title], .flat[title] { cursor:help; }
+.up { color:var(--hb-danger); font-weight:800; }
+.down { color:var(--hb-ok); font-weight:700; }
+.flat { color:var(--hb-mute); font-weight:600; }
+.num, td.num, td.sumcol { font-variant-numeric:tabular-nums; }
+.table-wrap { overflow:auto; max-height:62vh; }
+table { width:100%; border-collapse:separate; border-spacing:0; font-size:.82rem; table-layout:fixed; }
+th {
+  position:sticky; z-index:2;
+  background:#f4f4f6; color:var(--hb-sub);
+  padding:9px 8px; text-align:right; white-space:nowrap; font-weight:650;
+  border-bottom:1px solid var(--hb-line);
+}
+th.top1 { top:0; z-index:4; }
+th.group-wm { background:#d7e9ff; color:var(--hb-text); text-align:center; }
+th.group-tg { background:#ffe8a3; color:var(--hb-text); text-align:center; }
+/* 外卖/团购组宽=3×数字列；坏账右贴条加宽，主区吃剩余宽 */
+th.group-wm.top1, th.group-tg.top1 {
+  width:21.3em; min-width:21.3em; max-width:21.3em; box-sizing:border-box; padding-left:2px; padding-right:2px;
+}
+th.sub {
+  top:34px; z-index:3; font-size:.66rem; font-weight:500; text-align:center;
+  padding:4px 2px; width:7.1em; min-width:7.1em; max-width:7.1em;
+  white-space:normal; line-height:1.15; box-sizing:border-box;
+  background:#f4f4f6;
+}
+th.sub .sub-date { display:block; font-size:.6rem; font-weight:400; opacity:.92; }
+th.group-wm.sub { background:#e8f3ff; }
+th.group-tg.sub { background:#fff1c2; }
+th.left, td.region, td.city, td.owner, td.risk, td.bad { text-align:left; }
+th.owner-col, td.owner {
+  width:4.2rem; min-width:4.2rem; max-width:4.2rem;
+  padding-left:6px; padding-right:6px; box-sizing:border-box;
+}
+th.region-col, td.region {
+  width:5.2rem; min-width:5.2rem; max-width:5.2rem;
+  padding-left:6px; padding-right:6px; box-sizing:border-box;
+}
+th.city-col, td.city { max-width:5.2em; width:5.2em; min-width:5.2em; }
+td.city { font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:clip; }
+th.risk-col, td.risk { min-width:9em; width:9em; }
+/* 坏账=框外右侧条；横向滚动时贴右 */
+th.bad-col,
+td.bad {
+  width:13em; min-width:13em; max-width:13em;
+  position:sticky; right:0; box-sizing:border-box;
+}
+th.bad-col {
+  white-space:normal; line-height:1.2; font-size:.72rem; text-align:center;
+  overflow:hidden; background:#f4f4f6; z-index:5;
+}
+td.bad {
+  z-index:2; background:#fff;
+  box-shadow:-4px 0 8px rgba(15,23,42,0.06);
+}
+th.sum-col {
+  white-space:normal; line-height:1.2; font-size:.72rem; text-align:center;
+  width:7.1em; min-width:7.1em; max-width:7.1em; padding:6px 4px; box-sizing:border-box;
+}
+td.region, td.owner {
+  color:var(--hb-mute); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+}
+th.owner-col, th.region-col {
+  white-space:normal; line-height:1.2; font-size:.72rem; text-align:center;
+  padding:6px 4px;
+}
+td.sumcol {
+  font-weight:700; text-align:center; color:var(--hb-text); white-space:nowrap;
+  padding-left:4px; padding-right:4px;
+  width:7.1em; min-width:7.1em; max-width:7.1em; box-sizing:border-box;
+}
+td.num {
+  padding:6px 2px; width:7.1em; min-width:7.1em; max-width:7.1em;
+  font-size:.76rem; box-sizing:border-box; white-space:nowrap; text-align:center;
+}
+td.remark, td.fund, td.bad {
+  color:var(--hb-sub); width:13em; min-width:13em; max-width:13em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  line-height:1.35; font-size:.78rem;
+}
+td {
+  padding:6px 8px; border-bottom:1px solid var(--hb-line);
+  text-align:right; white-space:nowrap;
+  height:44px; max-height:44px; box-sizing:border-box; vertical-align:middle;
+  background:#fff;
+}
+tbody tr { height:44px; }
+tbody td.bad { width:13em; min-width:13em; max-width:13em; }
+td.prev { color:var(--hb-mute); }
+td.empty { color:var(--hb-mute); }
+tbody tr:nth-child(even) td { background:#fafafa; }
+tbody tr:nth-child(even) td.bad { background:#fafafa; }
+tr:hover td { background:#fff8d6 !important; }
+tr.total-row td {
+  background:#ffe566 !important; font-weight:700; color:var(--hb-text);
+  border-bottom:2px solid #e6c200;
+  position:sticky; top:68px; z-index:2;
+}
+tr.total-row td.bad { z-index:3; background:#ffe566 !important; }
+tr.total-row td:first-child { text-align:left; }
+.badge {
+  display:inline-block; padding:2px 8px; border-radius:999px;
+  font-size:.72rem; font-weight:700; white-space:normal; max-width:9.5em; line-height:1.25;
+  border:1px solid var(--hb-line);
+}
+.badge.high { background:rgba(255,69,58,0.1); color:var(--hb-danger); border-color:rgba(255,69,58,0.28); }
+.badge.mid { background:rgba(255,159,10,0.12); color:#b36b00; border-color:rgba(255,159,10,0.3); }
+.badge.low { background:rgba(48,209,88,0.1); color:var(--hb-ok); border-color:rgba(48,209,88,0.25); }
+.report {
+  margin:0; padding:14px 22px 18px; border-top:1px solid var(--hb-line);
+  background:rgba(251,251,253,0.72);
+}
+.report h2 {
+  margin:0 0 8px; font-size:.95rem; color:var(--hb-text); font-weight:720;
+  display:inline-flex; align-items:center; gap:8px;
+}
+.report h2::before {
+  content:""; width:4px; height:14px; border-radius:2px;
+  background:linear-gradient(180deg,var(--hb-yellow-soft),var(--hb-yellow));
+}
+.report ul { margin:0; padding-left:18px; line-height:1.7; font-size:.86rem; color:var(--hb-sub); }
+.note { padding:10px 22px 14px; color:var(--hb-mute); font-size:.76rem; line-height:1.5; }
+
+.card-head .title-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px;}
+.card-head .title-row h1{margin:0;}
+.view-toggle{display:inline-flex;gap:0;border:1px solid var(--hb-line);border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.7);}
+.view-toggle button{border:0;background:transparent;color:var(--hb-sub);font:inherit;font-size:.88rem;font-weight:650;padding:6px 14px;cursor:pointer;}
+.view-toggle button.active{background:rgba(255,214,10,0.22);color:var(--hb-text);}
+.view-toggle button:not(.active):hover{background:rgba(255,214,10,0.1);}
+.title-toggles{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;}
+#cityFilterWrap.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="card">
+    <div class="card-head">
+      <div class="title-row">
+        <h1 id="pageTitle">城市借款异常分析<span class="asof">（截至 2026/08/06）</span><span class="asof-total" id="asofTotal"></span></h1>
+        <div class="title-toggles">
+          <div class="view-toggle" role="tablist" aria-label="展示维度">
+            <button type="button" id="btnViewCity" class="active">城市维度</button>
+            <button type="button" id="btnViewRegion">区域维度</button>
+          </div>
+          <div class="view-toggle" role="tablist" aria-label="业务板块">
+            <button type="button" id="btnBizAll" class="active" data-biz="all">全部板块</button>
+            <button type="button" id="btnBizWm" data-biz="wm">仅外卖</button>
+            <button type="button" id="btnBizTg" data-biz="tg">仅团购</button>
+          </div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div>
+          <label>本期日期</label>
+          <div class="date-fixed" id="dateCurrLabel" title="固定为数据最新日，不可改">2026-08-06</div>
+        </div>
+        <div>
+          <label for="datePrev">上期日期</label>
+          <input type="date" id="datePrev" min="2026-01-05" max="2026-08-06" value="2026-07-29" />
+        </div>
+        <div>
+          <label for="filterRegion">区域</label>
+          <select id="filterRegion">
+            <option value="">全部区域</option>
+            <option value="川藏一区">川藏一区</option><option value="川藏三区">川藏三区</option><option value="川藏二区">川藏二区</option><option value="江西一区">江西一区</option><option value="江西二区">江西二区</option><option value="河南区域">河南区域</option><option value="湖北区域">湖北区域</option><option value="福建区域">福建区域</option><option value="粤海区域">粤海区域</option><option value="黔渝区域">黔渝区域</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterOwner">区域负责人</label>
+          <select id="filterOwner">
+            <option value="">全部负责人</option>
+            <option value="乔显海">乔显海</option><option value="吴奇">吴奇</option><option value="晏颖">晏颖</option><option value="熊磊">熊磊</option><option value="王小刚">王小刚</option><option value="石磊">石磊</option><option value="陈乐">陈乐</option><option value="鲁康康">鲁康康</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterRisk">风险级别</label>
+          <select id="filterRisk">
+            <option value="">全部</option>
+            <option value="high">高风险</option>
+            <option value="mid">中风险</option>
+            <option value="low">低</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterException">异常分析</label>
+          <select id="filterException">
+            <option value="">全部</option>
+            <option value="f1">①上月结余未还清</option>
+            <option value="f2">②超一个月未变动</option>
+            <option value="f3">③有坏账</option>
+            <option value="f4">④单板块余款≥10万</option>
+            <option value="f5">⑤近两月未实质结清</option>
+            <option value="f6">⑥T-7可用有余额且订单为0</option>
+          </select>
+        </div>
+        <div id="cityFilterWrap">
+          <label for="filterCity">城市</label>
+          <select id="filterCity">
+            <option value="">全部城市</option>
+            <option value="万安县">万安县</option><option value="三穗县">三穗县</option><option value="上犹县">上犹县</option><option value="九龙县">九龙县</option><option value="乳源瑶族自治县">乳源瑶族自治县</option><option value="五华县">五华县</option><option value="井冈山市">井冈山市</option><option value="仁寿县">仁寿县</option><option value="会昌县">会昌县</option><option value="余干县">余干县</option><option value="信丰县">信丰县</option><option value="兴国县">兴国县</option><option value="分宜">分宜</option><option value="南城县">南城县</option><option value="南溪">南溪</option><option value="叙永">叙永</option><option value="合江县">合江县</option><option value="吉安市">吉安市</option><option value="大余县">大余县</option><option value="威远县">威远县</option><option value="宁德市">宁德市</option><option value="安义">安义</option><option value="安福">安福</option><option value="寻乌">寻乌</option><option value="康定">康定</option><option value="彭州市">彭州市</option><option value="息烽县">息烽县</option><option value="昌都市">昌都市</option><option value="松潘县">松潘县</option><option value="武穴市">武穴市</option><option value="永城市">永城市</option><option value="永新县">永新县</option><option value="江油市">江油市</option><option value="泰和县">泰和县</option><option value="泸定县">泸定县</option><option value="玉山县">玉山县</option><option value="理县">理县</option><option value="理塘县">理塘县</option><option value="瑞金市">瑞金市</option><option value="甘孜县">甘孜县</option><option value="盐亭">盐亭</option><option value="石柱土家族自治县">石柱土家族自治县</option><option value="稻城县">稻城县</option><option value="罗田县">罗田县</option><option value="英山">英山</option><option value="虞城县">虞城县</option><option value="贵定县">贵定县</option><option value="遂川">遂川</option><option value="邛崃市">邛崃市</option><option value="都江堰市">都江堰市</option><option value="钟祥市">钟祥市</option><option value="铅山县">铅山县</option><option value="陆河县">陆河县</option><option value="随县">随县</option><option value="随州">随州</option><option value="雅江县">雅江县</option><option value="饶平县">饶平县</option><option value="麻城市">麻城市</option>
+          </select>
+        </div>
+        <button type="button" class="btn-query" id="btnQuery">查询</button>
+        <button type="button" class="btn-reset" id="btnReset">重置</button>
+        <div class="hint" id="filterHint"></div>
+      </div>
+      <div class="risk-guide-bar">
+        <b>风险等级说明：</b>
+        ①上月结余到今天仍未还清；②有余额且借款还款明细最近一笔流程已满一个月；③有坏账；④单个业务板块余款大于等于10万；⑤近两个月未实质结清，当前余额较两个月前未显著压降（仍围绕两月前余款附近波动）；⑥可用金额有余额且 T-7 订单量为 0（取自外卖「七天未刷单城市数据源」，与看板可用金额/T-7 同源）。
+        按外卖 / 团购分别判定：仅命中④为<span style="color:var(--hb-warn);font-weight:700;">中风险</span>；命中①或②或③或⑤或⑥等为<span style="color:var(--hb-danger);font-weight:700;">高风险</span>；均未命中为低。悬停风险等级可看风险原因。
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="mainTable">
+        <thead id="mainHead"></thead>
+        <tbody id="dataBody"></tbody>
+      </table>
+    </div>
+
+    <div class="report">
+      <h2>总汇报</h2>
+      <ul id="reportList"></ul>
+    </div>
+
+    <p class="note" id="pageNote">
+      数据源：外卖 SD + 团购 SD（与回款进度表同源）。单位：万元。上升红色 ↑ · 下降绿色 ↓。
+    </p>
+  </div>
+</div>
+
+<script src="../js/defaults.js"></script>
+<script src="../js/store.js"></script>
+<script>
+LoanBoardStore.ready().then(function () {
+let DATA = LoanBoardStore.load('anomaly');
+/** 本期之前最近的周五（不含本期当天）。例：2026-08-13 → 2026-08-07 */
+function lastFridayBefore(iso) {
+  if (!iso) return '';
+  const p = String(iso).slice(0, 10).split('-').map(Number);
+  if (p.length !== 3 || !p[0]) return '';
+  const d = new Date(p[0], p[1] - 1, p[2]);
+  d.setDate(d.getDate() - 1);
+  while (d.getDay() !== 5) d.setDate(d.getDate() - 1); // 0=Sun ... 5=Fri
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  let out = y + '-' + m + '-' + day;
+  if (DATA.minDate && out < DATA.minDate) out = DATA.minDate;
+  return out;
+}
+function rebuildFilterOptionsFromData() {
+  const regionSel = document.getElementById('filterRegion');
+  const ownerSel = document.getElementById('filterOwner');
+  const citySel = document.getElementById('filterCity');
+  if (!regionSel || !ownerSel || !citySel) return;
+  const regions = [...new Set(Object.values(DATA.regions || {}))].filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b,'zh'));
+  const owners = [...new Set(Object.values(DATA.owners || {}))].filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b,'zh'));
+  const cities = (DATA.cities || []).slice().sort((a,b)=>a.localeCompare(b,'zh'));
+  regionSel.innerHTML = '<option value="">全部区域</option>' +
+    regions.map(v => '<option value="'+v+'">'+v+'</option>').join('');
+  ownerSel.innerHTML = '<option value="">全部负责人</option>' +
+    owners.map(v => '<option value="'+v+'">'+v+'</option>').join('');
+  citySel.innerHTML = '<option value="">全部城市</option>' +
+    cities.map(v => '<option value="'+v+'">'+v+'</option>').join('');
+  if (DATA.minDate) document.getElementById('datePrev').min = DATA.minDate;
+  const maxD = DATA.maxDate || DATA.defaultCurr;
+  if (maxD) {
+    document.getElementById('datePrev').max = maxD;
+    // 上期默认：本期之前最近的周五（例：本期 8/13 → 上期 8/7）
+    document.getElementById('datePrev').value = lastFridayBefore(maxD) || DATA.defaultPrev || maxD;
+    const lab = document.getElementById('dateCurrLabel');
+    if (lab) lab.textContent = maxD;
+  }
+}
+rebuildFilterOptionsFromData();
+(function () {
+  const datePrev = document.getElementById('datePrev');
+  const regionSel = document.getElementById('filterRegion');
+  const ownerSel = document.getElementById('filterOwner');
+  const riskSel = document.getElementById('filterRisk');
+  const excSel = document.getElementById('filterException');
+  const citySel = document.getElementById('filterCity');
+  const cityFilterWrap = document.getElementById('cityFilterWrap');
+  const body = document.getElementById('dataBody');
+  const mainHead = document.getElementById('mainHead');
+  const pageNote = document.getElementById('pageNote');
+  // 本期固定为数据最新日，不可改
+  const latestCut = DATA.maxDate || DATA.defaultCurr;
+  let isRegionView = false;
+  let bizMode = 'all'; // all | wm | tg
+  const regionOptsRaw = Array.from(regionSel.options).map(o => ({ value: o.value, text: o.textContent }));
+
+  const NOTE_CITY = '口径：按城市展示；风险按城市判定。';
+  const NOTE_REGION = '区域一行（福建与黔渝合并为「福建黔渝」）；不展示城市及坏账列。金额按区域内城市汇总；风险取区域内城市最高等级并合并原因。口径与城市页一致。';
+  const NOTE_TAIL = pageNote ? pageNote.textContent.trim() : '';
+
+  function showWm() { return bizMode !== 'tg'; }
+  function showTg() { return bizMode !== 'wm'; }
+
+  function buildThead() {
+    const wm = showWm();
+    const tg = showTg();
+    const sumLabel = isRegionView ? '截至目前<br>区域借款' : '截至目前<br>城市借款';
+    const sumTip = isRegionView ? '截至目前区域借款' : '截至目前城市借款';
+    let head1 = '<tr>'
+      + '<th class="left top1 owner-col" rowspan="2">区域<br>负责人</th>'
+      + '<th class="left top1 region-col" rowspan="2">区域</th>';
+    if (!isRegionView) head1 += '<th class="left top1 city-col" rowspan="2">城市</th>';
+    head1 += '<th class="left top1 risk-col" rowspan="2">风险级别</th>'
+      + '<th class="left top1 sum-col" rowspan="2" title="' + sumTip + '">' + sumLabel + '</th>';
+    if (wm) head1 += '<th class="group-wm top1" colspan="3">外卖</th>';
+    if (tg) head1 += '<th class="group-tg top1" colspan="3">团购</th>';
+    if (!isRegionView) head1 += '<th class="left top1 bad-col" rowspan="2" title="外卖/团购看板「坏账原因」">坏账金额<br>及情况</th>';
+    head1 += '</tr>';
+
+    let head2 = '<tr>';
+    if (wm) {
+      head2 += '<th class="group-wm sub" id="hWmCurr">本期（最新）</th>'
+        + '<th class="group-wm sub" id="hWmPrev">上期</th>'
+        + '<th class="group-wm sub">增减</th>';
+    }
+    if (tg) {
+      head2 += '<th class="group-tg sub" id="hTgCurr">本期（最新）</th>'
+        + '<th class="group-tg sub" id="hTgPrev">上期</th>'
+        + '<th class="group-tg sub">增减</th>';
+    }
+    head2 += '</tr>';
+
+    const leftCols = isRegionView ? 3 : 4;
+    let total = '<tr class="total-row" id="totalRow">'
+      + '<td colspan="' + leftCols + '">合计（当前筛选）</td>'
+      + '<td class="sumcol" id="sumAllC">—</td>';
+    if (wm) {
+      total += '<td class="num" id="sumWmC">—</td>'
+        + '<td class="num prev" id="sumWmP">—</td>'
+        + '<td class="num" id="sumWmD">—</td>';
+    }
+    if (tg) {
+      total += '<td class="num" id="sumTgC">—</td>'
+        + '<td class="num prev" id="sumTgP">—</td>'
+        + '<td class="num" id="sumTgD">—</td>';
+    }
+    if (!isRegionView) {
+      total += '<td class="col-tip" colspan="1"><b>提示：</b>坏账金额及情况过长省略，悬停看全文</td>';
+    }
+    total += '</tr>';
+    return head1 + head2 + total;
+  }
+
+  function applyHeadAndChrome() {
+    if (mainHead) mainHead.innerHTML = buildThead();
+    if (pageNote) pageNote.textContent = (isRegionView ? NOTE_REGION : NOTE_CITY) + ' ' + NOTE_TAIL;
+    const titleEl = document.getElementById('pageTitle');
+    if (titleEl) {
+      const asofHtml = titleEl.querySelector('.asof') ? titleEl.querySelector('.asof').outerHTML : '';
+      const totalHtml = titleEl.querySelector('.asof-total') ? titleEl.querySelector('.asof-total').outerHTML : '';
+      titleEl.innerHTML = (isRegionView ? '区域借款异常分析' : '城市借款异常分析') + asofHtml + totalHtml;
+    }
+  }
+
+  function regionKey(raw) {
+    const r = String(raw || '').trim();
+    if (!r) return '—';
+    if (r.indexOf('福建') >= 0 || r.indexOf('黔渝') >= 0) return '福建黔渝';
+    return r;
+  }
+  function matchRegionFilter(rawRegion, selected) {
+    if (!selected) return true;
+    if (isRegionView) return regionKey(rawRegion) === selected;
+    return rawRegion === selected;
+  }
+  function rebuildRegionOptions() {
+    const cur = regionSel.value;
+    if (isRegionView) {
+      const vals = new Set();
+      regionOptsRaw.forEach(o => { if (o.value) vals.add(regionKey(o.value)); });
+      regionSel.innerHTML = '<option value="">全部区域</option>' +
+        Array.from(vals).sort((a,b)=>a.localeCompare(b,'zh'))
+          .map(v => '<option value="'+v+'">'+v+'</option>').join('');
+      if ([...vals].includes(cur) || [...vals].includes(regionKey(cur))) {
+        regionSel.value = [...vals].includes(cur) ? cur : regionKey(cur);
+      }
+    } else {
+      regionSel.innerHTML = regionOptsRaw.map(o =>
+        '<option value="'+esc(o.value)+'">'+esc(o.text)+'</option>'
+      ).join('');
+      if (regionOptsRaw.some(o => o.value === cur)) regionSel.value = cur;
+    }
+  }
+  function applyViewMode(mode) {
+    isRegionView = mode === 'region';
+    document.getElementById('btnViewCity').classList.toggle('active', !isRegionView);
+    document.getElementById('btnViewRegion').classList.toggle('active', isRegionView);
+    if (cityFilterWrap) cityFilterWrap.classList.toggle('hidden', isRegionView);
+    applyHeadAndChrome();
+    rebuildRegionOptions();
+    if (isRegionView && citySel) citySel.value = '';
+    render();
+  }
+  function applyBizMode(mode) {
+    bizMode = (mode === 'wm' || mode === 'tg') ? mode : 'all';
+    document.querySelectorAll('[data-biz]').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-biz') === bizMode);
+    });
+    applyHeadAndChrome();
+    render();
+  }
+
+  function balAt(biz, city, cut) {
+    const row = DATA[biz][city];
+    if (!row) return null;
+    let v = row.o || 0;
+    const events = row.e || [];
+    for (let i = 0; i < events.length; i++) {
+      const d = events[i][0], n = events[i][1];
+      if (d <= cut) v += n;
+      else break;
+    }
+    return Math.round(v * 100) / 100;
+  }
+  function ownerOf(city, region) {
+    return (DATA.cityOwners && DATA.cityOwners[city]) || DATA.owners[region] || '—';
+  }
+  function fmtWan(n) {
+    if (n == null || !isFinite(n)) return '—';
+    const v = Math.round(n / 1000) / 10;
+    const x = Math.abs(v) < 0.05 ? 0 : v;
+    return x.toFixed(1).replace(/\.0$/, '') + '万';
+  }
+  function fmtYuan(n) {
+    if (n == null || !isFinite(n)) return '';
+    const x = Math.round(n * 100) / 100;
+    const s = x.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+    const parts = s.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.') + '元';
+  }
+  function wanCell(n, cls) {
+    if (n == null || !isFinite(n)) return '<td class="'+(cls||'num')+' empty">—</td>';
+    return '<td class="'+(cls||'num')+'" title="'+esc(fmtYuan(n))+'">'+fmtWan(n)+'</td>';
+  }
+  function setAmt(el, n) {
+    if (!el) return;
+    if (n == null || !isFinite(n)) {
+      el.textContent = '—';
+      el.removeAttribute('title');
+      return;
+    }
+    el.textContent = fmtWan(n);
+    el.setAttribute('title', fmtYuan(n));
+  }
+  function clampDate(iso) {
+    let c = iso || DATA.defaultPrev || DATA.minDate;
+    if (DATA.minDate && c < DATA.minDate) c = DATA.minDate;
+    if (c > latestCut) c = latestCut;
+    return c;
+  }
+  function syncCuts() {
+    let prev = clampDate(datePrev.value || DATA.defaultPrev);
+    if (prev > latestCut) prev = latestCut;
+    datePrev.value = prev;
+    if (datePrev) datePrev.max = latestCut;
+    const asofEl = document.querySelector('#pageTitle .asof');
+    if (asofEl) asofEl.textContent = '（截至 ' + latestCut.replace(/-/g, '/') + '）';
+    const currLabel = document.getElementById('dateCurrLabel');
+    if (currLabel) currLabel.textContent = latestCut;
+    return prev;
+  }
+  function updateAsofTotal() {
+    let s = 0;
+    (DATA.cities || []).forEach(c => {
+      const w = balAt('wm', c, latestCut);
+      const t = balAt('tg', c, latestCut);
+      if (showWm() && w != null) s += w;
+      if (showTg() && t != null) s += t;
+    });
+    const el = document.getElementById('asofTotal');
+    if (el) {
+      el.innerHTML = '合计 <em title="'+esc(fmtYuan(s))+'">' + fmtWan(s) + '</em>';
+    }
+  }
+  function diffHtml(d) {
+    if (d == null || !isFinite(d)) return '<span class="flat">—</span>';
+    const v = Math.round(d / 1000) / 10;
+    const tip = 'title="'+esc(fmtYuan(d))+'"';
+    if (Math.abs(v) < 0.05) return '<span class="flat" '+tip+'>—</span>';
+    if (v > 0) return '<span class="up" '+tip+'>↑ +' + fmtWan(d) + '</span>';
+    return '<span class="down" '+tip+'>↓ ' + fmtWan(d) + '</span>';
+  }
+  function labelOf(iso) {
+    const p = iso.split('-');
+    return parseInt(p[1],10) + '月' + parseInt(p[2],10) + '日';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function repayBetween(biz, city, startIso, endIso) {
+    const row = DATA[biz][city];
+    if (!row || !row.rp) return 0;
+    let s = 0;
+    const keys = Object.keys(row.rp);
+    for (let i = 0; i < keys.length; i++) {
+      const d = keys[i];
+      if (d >= startIso && d <= endIso) s += row.rp[d] || 0;
+    }
+    return s;
+  }
+  function prevMonthEnd(iso) {
+    const p = iso.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, 1);
+    d.setDate(0); // last day of previous month
+    const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+    return y + '-' + String(m).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+  }
+  function monthStart(iso) {
+    const p = iso.split('-');
+    return p[0] + '-' + p[1] + '-01';
+  }
+  function daysBetween(a, b) {
+    const pa = a.split('-').map(Number), pb = b.split('-').map(Number);
+    const da = Date.UTC(pa[0], pa[1]-1, pa[2]), db = Date.UTC(pb[0], pb[1]-1, pb[2]);
+    return Math.floor((db - da) / 86400000);
+  }
+  function shiftMonth(iso, delta) {
+    const p = iso.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1 + delta, Math.min(p[2], 28));
+    // 先落到当月28日再设目标日，减少月末溢出；再钳到该月最后一天
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(p[2], last));
+    const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+    return y + '-' + String(m).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+  }
+  function stickyTwoMonthBiz(biz, city, asOf) {
+    // ⑤：两月前有实质余额；期间未实际结清；当前余额较两月前未显著减少（降幅≤30%）
+    const balNow = balAt(biz, city, asOf);
+    if (balNow == null || balNow < 500) return false;
+    const cut0 = shiftMonth(asOf, -2);
+    const bal0 = balAt(biz, city, cut0);
+    if (bal0 == null || bal0 < 500) return false;
+    if (balNow < bal0 * 0.7) return false; // 已显著压降
+    const row = DATA[biz][city];
+    if (!row) return false;
+    let v = bal0;
+    const events = row.e || [];
+    const cleared = Math.max(500, bal0 * 0.05);
+    for (let i = 0; i < events.length; i++) {
+      const d = events[i][0], n = events[i][1];
+      if (d <= cut0) continue;
+      if (d > asOf) break;
+      v = Math.round((v + n) * 100) / 100;
+      if (v < cleared) return false; // 期间曾实质结清/接近清零
+    }
+    return true;
+  }
+  function lastFlowBiz(biz, city) {
+    const row = DATA[biz][city];
+    return (row && row.lf) ? row.lf : null;
+  }
+  function lastMonthUnpaidBiz(biz, city, asOf) {
+    if (!DATA[biz][city]) return 0;
+    const me = prevMonthEnd(asOf);
+    const ms = monthStart(asOf);
+    const open = balAt(biz, city, me) || 0;
+    if (open <= 0.5) return 0;
+    const repaid = repayBetween(biz, city, ms, asOf);
+    return Math.round(Math.max(0, open - repaid) * 100) / 100;
+  }
+  function bizRiskDetail(biz, city, bal, hasBiz) {
+    if (!hasBiz) return { grade:'low', reasons:[] };
+    const asOf = latestCut;
+    const label = biz === 'wm' ? '外卖' : '团购';
+    const f1 = lastMonthUnpaidBiz(biz, city, asOf) >= 0.5;
+    const lf = lastFlowBiz(biz, city);
+    const f2 = Math.abs(bal) >= 0.5 && !!lf && daysBetween(lf, asOf) >= 30;
+    const badAmt = (DATA.badBiz && DATA.badBiz[city] && DATA.badBiz[city][label]) || 0;
+    const rb = (DATA.remarkBiz && DATA.remarkBiz[city]) || {};
+    const badNote = !!(rb[label] && String(rb[label]).trim());
+    // ③有坏账：该板块看板坏账备注非空，或该板块坏账金额≥0.5 且仍有余额
+    const f3 = badNote || (badAmt >= 0.5 && Math.abs(bal) >= 0.5);
+    const f4 = Math.abs(bal) >= 100000; // ④：单板块余额 ≥ 10万（含等于）
+    const f5 = stickyTwoMonthBiz(biz, city, asOf);
+    const f6 = biz === 'wm' && !!(DATA.t7AvailZero && DATA.t7AvailZero[city]);
+    const reasons = [];
+    const tags = [];
+    if (f1) { reasons.push(label + '上月结余未还清'); tags.push('f1'); }
+    if (f2) { reasons.push(label + '超一个月未变动'); tags.push('f2'); }
+    if (f3) { reasons.push(label + '有坏账'); tags.push('f3'); }
+    if (f4) { reasons.push(label + '单板块≥10万'); tags.push('f4'); }
+    if (f5) { reasons.push(label + '近两月未实质结清（余额仍贴两月前）'); tags.push('f5'); }
+    if (f6) {
+      const info = DATA.t7AvailZero[city] || {};
+      const availTip = (info.avail != null) ? ('，可用' + fmtWan(info.avail)) : '';
+      reasons.push(label + '可用金额有余额且T-7为0' + availTip);
+      tags.push('f6');
+    }
+    let grade = 'low';
+    if (f4 && !f1 && !f2 && !f3 && !f5 && !f6) grade = 'mid';
+    else if (f1 || f2 || f3 || f4 || f5 || f6) grade = 'high';
+    // 单板块余额低于5000：高风险下调为中风险
+    if (grade === 'high' && Math.abs(bal) < 5000) grade = 'mid';
+    return { grade, reasons, tags };
+  }
+  const GRADE_RANK = { high:2, mid:1, low:0 };
+  const GRADE_WORD = { high:'高', mid:'中', low:'低' };
+  function mergeRisk(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    const grade = GRADE_RANK[a.grade] >= GRADE_RANK[b.grade] ? a.grade : b.grade;
+    const reasons = []; const seen = {};
+    (a.reasons||[]).concat(b.reasons||[]).forEach(x => { if (!seen[x]) { seen[x]=1; reasons.push(x); } });
+    const tags = []; const seenT = {};
+    (a.tags||[]).concat(b.tags||[]).forEach(x => { if (!seenT[x]) { seenT[x]=1; tags.push(x); } });
+    let text = a.text;
+    if (GRADE_RANK[b.grade] > GRADE_RANK[a.grade]) text = b.text;
+    else if (a.grade === b.grade && a.grade !== 'low' && a.text !== b.text) text = GRADE_WORD[a.grade] + '风险';
+    return { key: grade, text, level: grade, grade, reasons, tags };
+  }
+  function riskOf(row) {
+    const wm = bizRiskDetail('wm', row.city, row.wmC, row.hasW);
+    const tg = bizRiskDetail('tg', row.city, row.tgC, row.hasT);
+    if (bizMode === 'wm') {
+      const reasons = wm.reasons; const tags = wm.tags || [];
+      if (wm.grade === 'low') return { key:'low', text:'低', level:'low', grade:'low', reasons, tags, wmG:wm.grade, tgG:'low' };
+      return { key: wm.grade, text: '外卖' + GRADE_WORD[wm.grade] + '风险', level: wm.grade, grade: wm.grade, reasons, tags, wmG:wm.grade, tgG:'low' };
+    }
+    if (bizMode === 'tg') {
+      const reasons = tg.reasons; const tags = tg.tags || [];
+      if (tg.grade === 'low') return { key:'low', text:'低', level:'low', grade:'low', reasons, tags, wmG:'low', tgG:tg.grade };
+      return { key: tg.grade, text: '团购' + GRADE_WORD[tg.grade] + '风险', level: tg.grade, grade: tg.grade, reasons, tags, wmG:'low', tgG:tg.grade };
+    }
+    const reasons = wm.reasons.concat(tg.reasons);
+    const tags = []; const seenT = {};
+    (wm.tags||[]).concat(tg.tags||[]).forEach(x => { if (!seenT[x]) { seenT[x]=1; tags.push(x); } });
+    const wmG = wm.grade, tgG = tg.grade;
+    if (wmG === 'low' && tgG === 'low') {
+      return { key:'low', text:'低', level:'low', grade:'low', reasons, tags };
+    }
+    const grade = GRADE_RANK[wmG] >= GRADE_RANK[tgG] ? wmG : tgG;
+    let text;
+    if (wmG !== 'low' && tgG !== 'low') {
+      text = (wmG === tgG)
+        ? ('外卖团购' + GRADE_WORD[wmG] + '风险')
+        : ('外卖' + GRADE_WORD[wmG] + '团购' + GRADE_WORD[tgG] + '风险');
+    } else if (wmG !== 'low') {
+      text = '外卖' + GRADE_WORD[wmG] + '风险';
+    } else {
+      text = '团购' + GRADE_WORD[tgG] + '风险';
+    }
+    return { key: grade, text, level: grade, grade, reasons, tags, wmG, tgG };
+  }
+  function loadFin() { return {}; }
+    function rebuildCityOptions() {
+    if (!citySel) return;
+    const cur = citySel.value;
+    const reg = regionSel.value;
+    const own = ownerSel.value;
+    const list = DATA.cities.filter(c => {
+      const region = DATA.regions[c] || '';
+      if (!matchRegionFilter(region, reg)) return false;
+      if (own && ownerOf(c, region) !== own) return false;
+      return true;
+    });
+    citySel.innerHTML = '<option value="">全部城市</option>' +
+      list.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+    if (list.includes(cur)) citySel.value = cur;
+  }
+
+  function render() {
+    const prev = syncCuts();
+    updateAsofTotal();
+    const hWmCurr = document.getElementById('hWmCurr');
+    const hWmPrev = document.getElementById('hWmPrev');
+    const hTgCurr = document.getElementById('hTgCurr');
+    const hTgPrev = document.getElementById('hTgPrev');
+    if (hWmCurr) hWmCurr.innerHTML = '本期<span class="sub-date">'+labelOf(latestCut)+'</span>';
+    if (hWmPrev) hWmPrev.innerHTML = '上期<span class="sub-date">'+labelOf(prev)+'</span>';
+    if (hTgCurr) hTgCurr.innerHTML = '本期<span class="sub-date">'+labelOf(latestCut)+'</span>';
+    if (hTgPrev) hTgPrev.innerHTML = '上期<span class="sub-date">'+labelOf(prev)+'</span>';
+
+    const reg = regionSel.value;
+    const own = ownerSel.value;
+    const riskFilter = riskSel.value;
+    const excFilter = excSel ? excSel.value : '';
+    const cityFilter = citySel ? citySel.value : '';
+    let rows = [];
+    DATA.cities.forEach(city => {
+      const regionRaw = DATA.regions[city] || '';
+      const region = isRegionView ? regionKey(regionRaw) : regionRaw;
+      const owner = ownerOf(city, regionRaw);
+      if (!matchRegionFilter(regionRaw, reg)) return;
+      if (own && owner !== own) return;
+      if (!isRegionView && cityFilter && city !== cityFilter) return;
+      const wmC = balAt('wm', city, latestCut);
+      const wmP = balAt('wm', city, prev);
+      const tgC = balAt('tg', city, latestCut);
+      const tgP = balAt('tg', city, prev);
+      const hasW = !!DATA.wm[city];
+      const hasT = !!DATA.tg[city];
+      if (bizMode === 'wm' && !hasW) return;
+      if (bizMode === 'tg' && !hasT) return;
+      const wC = wmC || 0, wP = wmP || 0, tC = tgC || 0, tP = tgP || 0;
+      const totalC = (showWm() && hasW ? wC : 0) + (showTg() && hasT ? tC : 0);
+      const row = {
+        region, city, owner,
+        wmC: wC, wmP: wP, wmD: wC - wP,
+        tgC: tC, tgP: tP, tgD: tC - tP,
+        totalC,
+        hasW, hasT,
+        badNote: (DATA.badNotes && DATA.badNotes[city]) || ''
+      };
+      row.risk = riskOf(row);
+      rows.push(row);
+    });
+    if (isRegionView) {
+      const map = {};
+      rows.forEach(r => {
+        const k = r.region;
+        if (!map[k]) {
+          map[k] = { region:k, city:'', owner:r.owner, owners:{}, wmC:0, wmP:0, tgC:0, tgP:0, totalC:0, hasW:false, hasT:false, risk:null, badNote:'' };
+        }
+        const g = map[k];
+        if (r.owner && r.owner !== '—') g.owners[r.owner] = 1;
+        if (r.hasW) { g.hasW = true; g.wmC += r.wmC; g.wmP += r.wmP; }
+        if (r.hasT) { g.hasT = true; g.tgC += r.tgC; g.tgP += r.tgP; }
+        g.totalC += r.totalC;
+        g.risk = mergeRisk(g.risk, r.risk);
+      });
+      rows = Object.keys(map).map(k => {
+        const g = map[k];
+        g.owner = Object.keys(g.owners).sort((a,b)=>a.localeCompare(b,'zh')).join(' / ') || '—';
+        g.wmD = g.wmC - g.wmP; g.tgD = g.tgC - g.tgP;
+        if (!g.risk) g.risk = { grade:'low', text:'低', level:'low', reasons:[], tags:[] };
+        return g;
+      });
+      if (riskFilter) rows = rows.filter(r => r.risk.grade === riskFilter);
+      if (excFilter) rows = rows.filter(r => (r.risk.tags || []).indexOf(excFilter) >= 0);
+      rows.sort((a,b) => b.totalC - a.totalC || a.region.localeCompare(b.region,'zh'));
+    } else {
+      if (riskFilter) rows = rows.filter(r => r.risk.grade === riskFilter);
+      if (excFilter) rows = rows.filter(r => (r.risk.tags || []).indexOf(excFilter) >= 0);
+      rows.sort((a,b) => b.totalC - a.totalC || a.region.localeCompare(b.region,'zh') || a.city.localeCompare(b.city,'zh'));
+    }
+
+    let sumWmC=0,sumWmP=0,sumTgC=0,sumTgP=0,sumAllC=0;
+    let nHigh=0, nMid=0, nLow=0;
+    const riskCities=[];
+    const stickyF5=[];
+    body.innerHTML = rows.map(r => {
+      if (showWm() && r.hasW) { sumWmC += r.wmC; sumWmP += r.wmP; }
+      if (showTg() && r.hasT) { sumTgC += r.tgC; sumTgP += r.tgP; }
+      sumAllC += r.totalC;
+      const risk = r.risk;
+      if (risk.grade === 'high') nHigh++;
+      else if (risk.grade === 'mid') nMid++;
+      else nLow++;
+      if (risk.grade !== 'low') riskCities.push((isRegionView ? r.region : r.city) + '（' + risk.text + '）');
+      if ((risk.reasons || []).some(x => x.indexOf('近两月未实质结清') >= 0)) {
+        stickyF5.push(isRegionView ? r.region : r.city);
+      }
+      const wmCells = showWm()
+        ? (r.hasW
+          ? (wanCell(r.wmC)+wanCell(r.wmP,'num prev')+'<td class="num">'+diffHtml(r.wmD)+'</td>')
+          : '<td class="num empty">—</td><td class="num empty">—</td><td class="num empty">—</td>')
+        : '';
+      const tgCells = showTg()
+        ? (r.hasT
+          ? (wanCell(r.tgC)+wanCell(r.tgP,'num prev')+'<td class="num">'+diffHtml(r.tgD)+'</td>')
+          : '<td class="num empty">—</td><td class="num empty">—</td><td class="num empty">—</td>')
+        : '';
+      if (isRegionView) {
+        return '<tr data-region="'+esc(r.region)+'">'
+          + '<td class="owner" title="'+esc(r.owner)+'">'+esc(r.owner)+'</td>'
+          + '<td class="region" title="'+esc(r.region || '—')+'">'+esc(r.region || '—')+'</td>'
+          + '<td class="risk"><span class="badge '+risk.level+'" title="'+esc(risk.reasons.length ? risk.reasons.join('；') : '未命中风险条件')+'">'+esc(risk.text)+'</span></td>'
+          + wanCell(r.totalC, 'sumcol')
+          + wmCells + tgCells
+          + '</tr>';
+      }
+      return '<tr data-city="'+esc(r.city)+'">'
+        + '<td class="owner" title="'+esc(r.owner)+'">'+esc(r.owner)+'</td>'
+        + '<td class="region" title="'+esc(r.region || '—')+'">'+esc(r.region || '—')+'</td>'
+        + '<td class="city" title="'+esc(r.city)+'">'+esc(r.city.length > 4 ? r.city.slice(0,4) : r.city)+'</td>'
+        + '<td class="risk"><span class="badge '+risk.level+'" title="'+esc(risk.reasons.length ? risk.reasons.join('；') : '未命中风险条件')+'">'+esc(risk.text)+'</span></td>'
+        + wanCell(r.totalC, 'sumcol')
+        + wmCells + tgCells
+        + '<td class="bad" title="'+esc(r.badNote || '')+'">'+esc(r.badNote || '—')+'</td>'
+        + '</tr>';
+    }).join('');
+
+    setAmt(document.getElementById('sumAllC'), sumAllC);
+    if (showWm()) {
+      setAmt(document.getElementById('sumWmC'), sumWmC);
+      setAmt(document.getElementById('sumWmP'), sumWmP);
+      const el = document.getElementById('sumWmD');
+      if (el) el.innerHTML = diffHtml(sumWmC - sumWmP);
+    }
+    if (showTg()) {
+      setAmt(document.getElementById('sumTgC'), sumTgC);
+      setAmt(document.getElementById('sumTgP'), sumTgP);
+      const el = document.getElementById('sumTgD');
+      if (el) el.innerHTML = diffHtml(sumTgC - sumTgP);
+    }
+    const bizTip = bizMode === 'wm' ? ' · 仅外卖' : (bizMode === 'tg' ? ' · 仅团购' : '');
+    document.getElementById('filterHint').textContent =
+      '显示 ' + rows.length + (isRegionView ? ' 个区域' : ' 城') + bizTip + ' · 本期最新 ' + labelOf(latestCut) + ' · 上期 ' + labelOf(prev);
+
+    function updateReport(list) {
+      const map = loadFin();
+      const bullets = [];
+      const pool = list.reduce((s, r) => s + (r.totalC || 0), 0);
+      const top10 = list.slice().sort((a, b) => b.totalC - a.totalC).slice(0, 10);
+      const topSum = top10.reduce((s, r) => s + (r.totalC || 0), 0);
+      const pctOfPool = (n) => {
+        if (!(pool > 0.5) || n == null || !isFinite(n)) return '—';
+        const p = Math.round((n / pool) * 1000) / 10;
+        return (Math.abs(p - Math.round(p)) < 0.05 ? String(Math.round(p)) : p.toFixed(1)) + '%';
+      };
+      const topParts = top10.map(r => {
+        const name = isRegionView ? (r.region || '—') : (r.city || '—');
+        return name + '（' + fmtWan(r.totalC) + '，' + pctOfPool(r.totalC) + '）';
+      });
+      bullets.push(
+        '截至 ' + labelOf(latestCut) + '，资金占有前十' + (isRegionView ? '区域' : '城市') +
+        (bizMode === 'wm' ? '（仅外卖）' : (bizMode === 'tg' ? '（仅团购）' : '')) + '：' +
+        (topParts.length ? topParts.join('、') : '—') +
+        '；合计占整改资金盘 ' + pctOfPool(topSum) + '。'
+      );
+      if (stickyF5.length) {
+        bullets.push('【重点提示·风险⑤】近两月未实质结清（余额仍贴两月前）共 ' + stickyF5.length + (isRegionView?' 个区域：':' 城：') + stickyF5.slice(0,20).join('、') + (stickyF5.length>20?'等':'') + '。请重点核查压降计划与资金是否长期滞留。');
+      }
+      if (riskCities.length) {
+        bullets.push((isRegionView?'风险区域：':'风险城市：') + riskCities.slice(0,12).join('、') + (riskCities.length>12?'等':'') + '。');
+      }
+      if (!isRegionView) {
+        const finLines = list.map(r => {
+          const t = (map[r.city] != null ? map[r.city] : r.fin || '').trim();
+          return t ? (r.city + '：' + t) : null;
+        }).filter(Boolean);
+        if (finLines.length) {
+          bullets.push('财务说明跟进：');
+          finLines.forEach(line => bullets.push(line));
+        } else {
+          bullets.push('财务说明：当前筛选城市暂无说明。');
+        }
+        bullets.push('请区域负责人跟进风险城市：核对在途回款、资金是否滞留、坏账与借款情况是否已填完整。');
+      } else {
+        bullets.push('请按区域维度跟进风险：核对各区域余额结构、上月结余清收与近两月未实质压降情况。');
+      }
+      document.getElementById('reportList').innerHTML = bullets.map(t => '<li>'+esc(t)+'</li>').join('');
+    }
+    window.__lastReportRows = rows;
+    updateReport(rows);
+  }
+
+  document.getElementById('btnQuery').addEventListener('click', render);
+  datePrev.addEventListener('change', render);
+  regionSel.addEventListener('change', rebuildCityOptions);
+  ownerSel.addEventListener('change', rebuildCityOptions);
+  document.getElementById('btnViewCity').addEventListener('click', () => applyViewMode('city'));
+  document.getElementById('btnViewRegion').addEventListener('click', () => applyViewMode('region'));
+  document.querySelectorAll('[data-biz]').forEach(btn => {
+    btn.addEventListener('click', () => applyBizMode(btn.getAttribute('data-biz')));
+  });
+  document.getElementById('btnReset').addEventListener('click', () => {
+    const maxD = DATA.maxDate || DATA.defaultCurr;
+    datePrev.value = lastFridayBefore(maxD) || DATA.defaultPrev;
+    regionSel.value = '';
+    ownerSel.value = '';
+    riskSel.value = '';
+    if (excSel) excSel.value = '';
+    bizMode = 'all';
+    document.querySelectorAll('[data-biz]').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-biz') === 'all');
+    });
+    applyHeadAndChrome();
+    rebuildCityOptions();
+    if (citySel) citySel.value = '';
+    render();
+  });
+  applyViewMode('city');
+})();
+
+LoanBoardStore.onUpdate(function (msg) {
+  if (msg && msg.kind && msg.kind !== 'anomaly') return;
+  if (msg && msg.type === 'storage' && !msg.kind) return;
+  location.reload();
+});
+});
+</script>
+</body>
+</html>

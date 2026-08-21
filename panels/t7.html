@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>近七天未SD城市汇报</title>
+<style>
+:root {
+  --hb-bg:#f5f5f7; --hb-soft-bg:#fbfbfd;
+  --hb-surface:rgba(255,255,255,0.82); --hb-surface-strong:rgba(255,255,255,0.94);
+  --hb-text:#1d1d1f; --hb-sub:#6e6e73; --hb-mute:#8e8e93;
+  --hb-line:rgba(60,60,67,0.08);
+  --hb-danger:#ff453a; --hb-ok:#30d158; --hb-warn:#ff9f0a;
+  --hb-progress-yellow:#ffc300; --hb-progress-green:#12b981; --hb-progress-blue:#0a84ff;
+  --hb-yellow:#ffc300; --hb-yellow-soft:#ffd60a;
+  --hb-shadow:0 1px 2px rgba(15,23,42,0.03), 0 14px 34px rgba(15,23,42,0.07);
+  --hb-shadow-y:0 1px 2px rgba(255,195,0,0.12), 0 14px 30px rgba(255,214,10,0.16);
+  --bg: transparent; --ink: var(--hb-text); --muted: var(--hb-sub); --line: var(--hb-line); --card: var(--hb-surface-strong);
+  --accent: var(--hb-text); --accent-soft: rgba(255,214,10,0.16);
+  --warn: #b36b00; --warn-soft: rgba(255,159,10,0.12);
+  --danger: var(--hb-danger); --danger-soft: rgba(255,69,58,0.1);
+  --new: var(--hb-progress-blue); --new-soft: rgba(10,132,255,0.1);
+  --gone: var(--hb-mute); --gone-soft: rgba(60,60,67,0.04);
+  --same: #b36b00; --same-soft: rgba(255,214,10,0.16);
+  --down: var(--hb-ok); --shadow: var(--hb-shadow);
+  --font: "PingFang SC","Segoe UI","Microsoft YaHei",sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font); color: var(--hb-text); background: transparent; }
+.wrap { width: min(1180px, calc(100% - 24px)); margin: 0 auto; padding: 16px 0 40px; }
+header { margin-bottom: 18px; }
+header h1 {
+  margin: 0 0 8px; font-size: 1.55rem; font-weight: 720; letter-spacing: -.02em;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+header h1::before {
+  content: ""; width: 4px; height: 20px; border-radius: 2px;
+  background: linear-gradient(180deg,var(--hb-yellow-soft),var(--hb-yellow));
+}
+header p { margin: 0; color: var(--hb-mute); line-height: 1.6; max-width: 70ch; }
+.rules { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
+.chip {
+  padding: 6px 10px; border-radius: 999px; background: rgba(255,214,10,0.14);
+  color: var(--hb-text); font-size: 13px; border: 1px solid rgba(255,195,0,0.35);
+}
+.compare-card {
+  background: var(--hb-surface-strong); border: 1px solid var(--hb-line); border-radius: 10px;
+  box-shadow: var(--hb-shadow); padding: 18px; margin-bottom: 18px; backdrop-filter: blur(12px);
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.compare-card:hover { transform: translateY(-1px); border-color: rgba(255,195,0,0.55); box-shadow: var(--hb-shadow-y); }
+.compare-card h3 { margin: 0; font-size: 1.05rem; font-weight: 700; }
+.compare-card .head {
+  display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: space-between; align-items: baseline;
+  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--hb-line); color: var(--hb-sub);
+}
+.table-wrap { overflow: auto; border: 1px solid var(--hb-line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; font-size: 14px; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--hb-line); text-align: left; white-space: nowrap; }
+th { background: rgba(251,251,253,0.96); color: var(--hb-sub); font-size: 12px; font-weight: 650; }
+tr:hover td { background: rgba(255,214,10,0.06); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.badge { display: inline-flex; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
+.badge.new { background: var(--new-soft); color: var(--new); border-color: rgba(10,132,255,0.28); }
+.badge.same { background: var(--same-soft); color: var(--same); border-color: rgba(255,195,0,0.35); }
+.badge.up { background: var(--danger-soft); color: var(--danger); border-color: rgba(255,69,58,0.28); }
+.badge.down { background: rgba(48,209,88,0.1); color: var(--down); border-color: rgba(48,209,88,0.25); }
+.badge.gone { background: var(--gone-soft); color: var(--gone); border-color: var(--hb-line); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); border-color: rgba(255,159,10,0.3); }
+footer { color: var(--hb-mute); font-size: 12px; line-height: 1.6; }
+.empty { color: var(--hb-mute); padding: 24px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>近七天未SD城市汇报</h1>
+    <p id="desc">对比周期加载中…</p>
+    <div class="rules" id="chips"></div>
+  </header>
+  <div id="cards"></div>
+  <footer>口径说明：主表只对比「上一期 → 本期」。提醒次数按「同一城市 + 同一借款金额」在历史各期连续命中累计（连续 3 期则第 3 次提醒，以此类推）。筛选：T-7订单量=0 且外卖借款余额&gt;0。</footer>
+</div>
+<script src="../js/defaults.js"></script>
+<script src="../js/store.js"></script>
+<script>
+LoanBoardStore.ready().then(function () {
+(function () {
+  function money(n) {
+    if (n == null || n === '' || !isFinite(Number(n))) return '—';
+    return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function mapByCity(rows) {
+    const m = new Map();
+    (rows || []).forEach(r => m.set(r.city, r));
+    return m;
+  }
+  /** streak of same city+amount ending at period index i (1-based count) */
+  function sameAmt(a, b) {
+    if (a == null || b == null) return false;
+    return Math.abs(Number(a) - Number(b)) < 0.005;
+  }
+  function remindLabel(periods, endIdx, city, amount) {
+    let streak = 0;
+    for (let i = endIdx; i >= 0; i--) {
+      const hit = (periods[i].rows || []).find(r => r.city === city && sameAmt(r.amount, amount));
+      if (!hit) break;
+      streak++;
+    }
+    if (streak <= 1) return { text: '首次出现', cls: 'new' };
+    return { text: '第 ' + streak + ' 次提醒', cls: 'warn' };
+  }
+  function changeOf(prevAmt, currAmt) {
+    if (prevAmt == null && currAmt != null) return { text: '新增', cls: 'new' };
+    if (prevAmt != null && currAmt == null) return { text: '消失', cls: 'gone' };
+    if (sameAmt(prevAmt, currAmt)) return { text: '不变', cls: 'same' };
+    if (Number(currAmt) > Number(prevAmt)) return { text: '上升', cls: 'up' };
+    return { text: '下降', cls: 'down' };
+  }
+  function render() {
+    const DATA = LoanBoardStore.load('t7');
+    const periods = DATA.periods || [];
+    const desc = document.getElementById('desc');
+    const chips = document.getElementById('chips');
+    const cards = document.getElementById('cards');
+    if (periods.length < 1) {
+      desc.textContent = '暂无期次数据';
+      chips.innerHTML = '';
+      cards.innerHTML = '<div class="empty">请到数据中心上传 T7 periods</div>';
+      return;
+    }
+    const last = periods[periods.length - 1];
+    const prev = periods.length >= 2 ? periods[periods.length - 2] : null;
+    desc.textContent = prev
+      ? ('本期对比：' + prev.date + '（上一期）→ ' + last.date + '（本期）。筛选条件：' + (DATA.rule || 'T-7订单量=0 且外卖借款余额>0') + '。')
+      : ('当前仅 1 期：' + last.date + '。再上传一期外卖A单后，将与上一期自动对比。筛选条件：' + (DATA.rule || 'T-7订单量=0 且外卖借款余额>0') + '。');
+    chips.innerHTML =
+      '<span class="chip">生成时间：' + (DATA.generatedAt || '—') + '</span>' +
+      '<span class="chip">累计 ' + periods.length + ' 期（提醒按全历史连续计算）</span>' +
+      (prev ? '<span class="chip">主表：上一期 vs 本期</span>' : '');
+
+    if (!prev) {
+      const p = last;
+      const rows = (p.rows || []).slice().sort((a,b) => (b.amount||0)-(a.amount||0));
+      cards.innerHTML = '<section class="compare-card"><div class="head"><h3>单期名单 · ' + p.date + '</h3><span>' + rows.length + ' 城</span></div>' +
+        '<div class="table-wrap"><table><thead><tr><th>区域</th><th>城市</th><th class="num">金额</th><th>提醒</th><th>异常金额说明</th></tr></thead><tbody>' +
+        rows.map(r => {
+          const rem = remindLabel(periods, periods.length - 1, r.city, r.amount);
+          const note = r.note || (DATA.notes && DATA.notes[r.city]) || '';
+          return '<tr><td>'+r.region+'</td><td>'+r.city+'</td><td class="num">'+money(r.amount)+'</td><td><span class="badge '+rem.cls+'">'+rem.text+'</span></td><td>'+note+'</td></tr>';
+        }).join('') + '</tbody></table></div></section>';
+      return;
+    }
+
+    // 只展示「上一期 → 本期」；提醒次数仍用全部历史期次回算连续命中
+    const iPrev = periods.length - 2;
+    const iCurr = periods.length - 1;
+    const a = periods[iPrev], b = periods[iCurr];
+    const ma = mapByCity(a.rows), mb = mapByCity(b.rows);
+    const cities = new Set([...ma.keys(), ...mb.keys()]);
+    const rows = [];
+    let same = 0, multi = 0;
+    cities.forEach(city => {
+      const ra = ma.get(city), rb = mb.get(city);
+      const prevAmt = ra ? ra.amount : null;
+      const currAmt = rb ? rb.amount : null;
+      if (currAmt == null) return; // 主表以本期名单为准
+      const ch = changeOf(prevAmt, currAmt);
+      if (ch.cls === 'same') same++;
+      const rem = remindLabel(periods, iCurr, city, currAmt);
+      if (rem.cls === 'warn') multi++;
+      rows.push({
+        region: (rb && rb.region) || (ra && ra.region) || '',
+        city, prevAmt, currAmt, ch, rem,
+        note: (rb && rb.note) || (ra && ra.note) || (DATA.notes && DATA.notes[city]) || ''
+      });
+    });
+    rows.sort((x,y) => (y.currAmt||0) - (x.currAmt||0) || x.city.localeCompare(y.city,'zh'));
+    cards.innerHTML = '<section class="compare-card"><div class="head">' +
+      '<h3>上一期 → 本期（' + a.date + ' → ' + b.date + '）</h3>' +
+      '<span>金额不变 ' + same + ' · 多次提醒 ' + multi + '</span></div>' +
+      '<div class="table-wrap"><table><thead><tr>' +
+      '<th>区域</th><th>城市</th>' +
+      '<th class="num">上一期 ' + a.date + '</th><th class="num">本期 ' + b.date + '</th>' +
+      '<th>变化</th><th>提醒</th><th>异常金额说明</th></tr></thead><tbody>' +
+      rows.map(r => '<tr><td>'+r.region+'</td><td>'+r.city+
+        '</td><td class="num">'+money(r.prevAmt)+'</td><td class="num">'+money(r.currAmt)+
+        '</td><td><span class="badge '+r.ch.cls+'">'+r.ch.text+'</span></td>' +
+        '<td><span class="badge '+r.rem.cls+'">'+r.rem.text+'</span></td>' +
+        '<td>'+(r.note||'')+'</td></tr>').join('') +
+      '</tbody></table></div></section>';
+  }
+  render();
+  LoanBoardStore.onUpdate(function (msg) {
+    if (msg && msg.kind && msg.kind !== 't7') return;
+    if (msg && msg.type === 'storage' && !msg.kind) return;
+    location.reload();
+  });
+})();
+});
+</script>
+</body>
+</html>

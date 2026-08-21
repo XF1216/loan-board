@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>回款进度表</title>
+<style>
+:root {
+  --hb-bg:#f5f5f7; --hb-soft-bg:#fbfbfd;
+  --hb-surface:rgba(255,255,255,0.82); --hb-surface-strong:rgba(255,255,255,0.94);
+  --hb-text:#1d1d1f; --hb-sub:#6e6e73; --hb-mute:#8e8e93;
+  --hb-line:rgba(60,60,67,0.08);
+  --hb-danger:#ff453a; --hb-ok:#30d158; --hb-warn:#ff9f0a;
+  --hb-progress-yellow:#ffc300; --hb-progress-green:#12b981; --hb-progress-blue:#0a84ff;
+  --hb-yellow:#ffc300; --hb-yellow-soft:#ffd60a;
+  --hb-shadow:0 1px 2px rgba(15,23,42,0.03), 0 14px 34px rgba(15,23,42,0.07);
+  --hb-shadow-y:0 1px 2px rgba(255,195,0,0.12), 0 14px 30px rgba(255,214,10,0.16);
+  --bg:transparent; --card:var(--hb-surface-strong); --ink:var(--hb-text);
+  --muted:var(--hb-sub); --line:var(--hb-line);
+  --teal:var(--hb-yellow); --teal-dark:var(--hb-text);
+  --ok:var(--hb-ok); --warn:var(--hb-warn); --bad:var(--hb-danger);
+}
+* { box-sizing:border-box; }
+html, body { height:100%; margin:0; }
+body {
+  font-family:"PingFang SC","Segoe UI","Microsoft YaHei",sans-serif;
+  background:transparent; color:var(--hb-text);
+  display:flex; flex-direction:column;
+}
+.wrap {
+  width:100%; max-width:1080px; margin:0 auto;
+  padding:12px 14px 16px; flex:1; min-height:0;
+  display:flex; flex-direction:column;
+}
+h1 {
+  margin:0 0 6px; font-size:1.35rem; text-align:left; font-weight:720; letter-spacing:-.02em;
+  display:inline-flex; align-items:center; gap:8px;
+}
+h1::before {
+  content:""; width:4px; height:18px; border-radius:2px;
+  background:linear-gradient(180deg,var(--hb-yellow-soft),var(--hb-yellow));
+}
+.sub { margin:0 0 14px; color:var(--hb-mute); font-size:.85rem; line-height:1.45; }
+.card {
+  background:var(--hb-surface-strong); border:1px solid var(--hb-line); border-radius:10px; overflow:hidden;
+  flex:1; min-height:0; display:flex; flex-direction:column;
+  width:100%; box-shadow:var(--hb-shadow); backdrop-filter:blur(12px);
+  transition:transform .15s,border-color .15s,box-shadow .15s;
+}
+.card:hover { transform:translateY(-1px); border-color:rgba(255,195,0,0.55); box-shadow:var(--hb-shadow-y); }
+.toolbar { display:flex; flex-wrap:wrap; gap:10px 12px; align-items:end; padding:12px 14px; border-bottom:1px solid var(--hb-line); }
+.toolbar label { display:block; font-size:.72rem; color:var(--hb-mute); margin-bottom:3px; }
+.toolbar select {
+  min-width:120px; height:34px; padding:0 10px; border:1px solid var(--hb-line);
+  border-radius:8px; font:inherit; background:#fff; color:var(--hb-text);
+}
+.toolbar select:focus {
+  outline:none; border-color:rgba(255,195,0,0.7); box-shadow:0 0 0 3px rgba(255,214,10,0.18);
+}
+.toolbar button {
+  border:0; border-radius:8px; padding:8px 14px; font:inherit; font-weight:650; cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+}
+.toolbar button:hover { transform:translateY(-1px); }
+.btn-query { background:var(--hb-yellow); color:var(--hb-text); box-shadow:0 1px 2px rgba(255,195,0,0.25); }
+.btn-reset { background:rgba(60,60,67,0.05); color:var(--hb-text); }
+.title-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:0 0 6px; }
+.title-row h1 { margin:0; }
+.biz-toggle {
+  display:inline-flex; gap:0; border:1px solid var(--hb-line); border-radius:999px; overflow:hidden;
+  background:rgba(255,255,255,0.7);
+}
+.biz-toggle button {
+  border:0; background:transparent; color:var(--hb-sub); font:inherit; font-size:.82rem; font-weight:650;
+  padding:6px 12px; cursor:pointer;
+}
+.biz-toggle button.active { background:rgba(255,214,10,0.22); color:var(--hb-text); }
+.biz-toggle button:not(.active):hover { background:rgba(255,214,10,0.1); }
+.hint { font-size:.78rem; color:var(--hb-mute); padding-bottom:4px; }
+.stats { display:flex; flex-wrap:wrap; gap:10px; padding:12px 14px; border-bottom:1px solid var(--hb-line); }
+.stat {
+  background:rgba(251,251,253,0.9); border:1px solid var(--hb-line); border-radius:8px;
+  padding:8px 12px; min-width:110px;
+}
+.stat .l { font-size:.72rem; color:var(--hb-mute); }
+.stat .v { font-size:1rem; font-weight:700; margin-top:2px; font-variant-numeric:tabular-nums; }
+.stat.warn .v { color:var(--hb-warn); }
+.stat.bad .v { color:var(--hb-danger); font-weight:800; }
+.scroll { overflow:auto; flex:1; min-height:220px; max-height:none; }
+table { width:100%; border-collapse:separate; border-spacing:0; font-size:.8rem; table-layout:fixed; }
+th {
+  position:sticky; z-index:3; background:#f4f4f6; color:var(--hb-sub);
+  padding:8px; text-align:right; white-space:nowrap; font-weight:650;
+  border-bottom:1px solid var(--hb-line);
+}
+/* 两行表头：组头/左列贴顶；子头贴在组头下方 */
+th.left, th.grp, th.sum-col { top:0; z-index:3; }
+th.sub {
+  top:32px; z-index:2; background:#f4f4f6;
+}
+th.left, td.left { text-align:left; }
+/* 左列适度宽；外卖/团购 grp~13em、num~6.5em 固定，避免跳动 */
+th.left:nth-child(1), td:nth-child(1) { width:4.5rem; min-width:4.5rem; }
+th.left:nth-child(2), td:nth-child(2) { width:5.5rem; min-width:5.5rem; }
+th.left:nth-child(3), td:nth-child(3) { width:5em; min-width:5em; }
+th.grp {
+  background:#ffe8a3; color:var(--hb-text); text-align:center;
+  width:13em; min-width:13em; max-width:13em; box-sizing:border-box;
+}
+th.num, td.num {
+  width:6.5em; min-width:6.5em; max-width:6.5em; box-sizing:border-box;
+  padding-left:4px; padding-right:4px;
+}
+th.sum-col, td.sum {
+  width:7em; min-width:7em; max-width:7em; box-sizing:border-box;
+  padding-left:4px; padding-right:4px;
+}
+td {
+  padding:7px 8px; border-bottom:1px solid var(--hb-line); text-align:right; white-space:nowrap;
+  font-variant-numeric:tabular-nums; background:#fff;
+}
+tr:hover td { background:#fff8d6; }
+tr.low td { background:#fff4e5; }
+tr.total td { background:#ffe566; font-weight:700; }
+.badge {
+  display:inline-block; padding:2px 7px; border-radius:999px; font-size:.72rem; font-weight:700;
+  border:1px solid var(--hb-line);
+}
+.ok { background:rgba(48,209,88,0.1); color:var(--hb-ok); border-color:rgba(48,209,88,0.25); }
+.warn { background:rgba(255,159,10,0.12); color:#b36b00; border-color:rgba(255,159,10,0.3); }
+.bad { background:rgba(255,69,58,0.1); color:var(--hb-danger); border-color:rgba(255,69,58,0.28); }
+.muted { color:var(--hb-mute); }
+.note { padding:0 16px 14px; color:var(--hb-mute); font-size:.78rem; }
+.errbox {
+  margin:12px 14px; padding:12px; border-radius:8px;
+  background:rgba(255,69,58,0.08); color:var(--hb-danger); font-size:.85rem; display:none;
+  border:1px solid rgba(255,69,58,0.22);
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title-row">
+    <h1 id="pageTitle">回款进度表</h1>
+    <div class="biz-toggle" role="tablist" aria-label="业务板块">
+      <button type="button" id="btnBizAll" class="active" data-biz="all">全部板块</button>
+      <button type="button" id="btnBizWm" data-biz="wm">仅外卖</button>
+      <button type="button" id="btnBizTg" data-biz="tg">仅团购</button>
+    </div>
+  </div>
+  <p class="sub">取外卖 / 团购 SD 表内「回款进度表」附表底层结果，合并展示；已结清（回款率100%）不显示。可切换仅看外卖或仅看团购。</p>
+  <div class="errbox" id="errbox"></div>
+
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <label for="filterOwner">区域负责人</label>
+        <select id="filterOwner"><option value="">全部负责人</option></select>
+      </div>
+      <div>
+        <label for="filterRegion">区域</label>
+        <select id="filterRegion"><option value="">全部区域</option></select>
+      </div>
+      <div>
+        <label for="filterCity">城市</label>
+        <select id="filterCity"><option value="">全部城市</option></select>
+      </div>
+      <button type="button" class="btn-query" id="btnQuery">查询</button>
+      <button type="button" class="btn-reset" id="btnReset">重置</button>
+      <div class="hint" id="filterHint"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="scroll">
+      <table>
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="note" id="metaNote"></p>
+  </div>
+</div>
+<script src="../js/defaults.js"></script>
+<script src="../js/store.js"></script>
+<script>
+(function () {
+  function asofLabelFrom(asOf) {
+    if (!asOf) return '';
+    var p = String(asOf).split('-');
+    if (p.length >= 3) return Number(p[1]) + '月' + Number(p[2]) + '日';
+    return asOf;
+  }
+
+  function boot(DATA) {
+    var ASOF_LABEL = asofLabelFrom(DATA.asOf);
+    var title = document.getElementById('pageTitle');
+    if (title) title.textContent = '回款进度表 · 截至 ' + ASOF_LABEL;
+
+    var ownerSel = document.getElementById('filterOwner');
+    var regionSel = document.getElementById('filterRegion');
+    var citySel = document.getElementById('filterCity');
+    var hint = document.getElementById('filterHint');
+    var thead = document.getElementById('thead');
+    var tbody = document.getElementById('tbody');
+    var stats = document.getElementById('stats');
+    var metaNote = document.getElementById('metaNote');
+    var bizMode = 'all'; // all | wm | tg
+
+    function allRows() { return DATA.rows || []; }
+    function setBizMode(mode) {
+      bizMode = mode === 'wm' || mode === 'tg' ? mode : 'all';
+      document.querySelectorAll('.biz-toggle button').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-biz') === bizMode);
+      });
+      render();
+    }
+    function rowAmount(r) {
+      if (bizMode === 'wm') return fmtNum(r.wmAmount);
+      if (bizMode === 'tg') return fmtNum(r.tgAmount);
+      return fmtNum(r.total);
+    }
+    function rowSettled(r) {
+      if (bizMode === 'wm') return (r.wmRate == null ? false : r.wmRate >= 0.999) || fmtNum(r.wmAmount) < 0.01;
+      if (bizMode === 'tg') return (r.tgRate == null ? false : r.tgRate >= 0.999) || fmtNum(r.tgAmount) < 0.01;
+      return (r.overallRate == null ? false : r.overallRate >= 0.999) || fmtNum(r.total) < 0.01;
+    }
+    function uniq(arr) {
+      return Array.from(new Set(arr.filter(Boolean))).sort(function (a, b) { return a.localeCompare(b, 'zh'); });
+    }
+    function fillSelect(sel, values, allLabel) {
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">' + allLabel + '</option>' +
+        values.map(function (v) { return '<option value="' + v + '">' + v + '</option>'; }).join('');
+      if (values.indexOf(cur) >= 0) sel.value = cur; else sel.value = '';
+    }
+    function refreshOptions() {
+      var rows = allRows();
+      fillSelect(ownerSel, uniq(rows.map(function (r) { return r.owner; })), '全部负责人');
+      fillSelect(regionSel, uniq(rows.filter(function (r) {
+        return !ownerSel.value || r.owner === ownerSel.value;
+      }).map(function (r) { return r.region; })), '全部区域');
+      fillSelect(citySel, uniq(rows.filter(function (r) {
+        if (ownerSel.value && r.owner !== ownerSel.value) return false;
+        if (regionSel.value && r.region !== regionSel.value) return false;
+        return true;
+      }).map(function (r) { return r.city; })), '全部城市');
+    }
+    function fmt(n) {
+      if (n == null || n === '' || (typeof n === 'number' && Math.abs(n) < 0.005)) {
+        return '<span class="muted">—</span>';
+      }
+      return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function fmtNum(n) {
+      if (n == null || n === '') return 0;
+      return Number(n) || 0;
+    }
+    function fmtRate(r) {
+      if (r == null) return '<span class="muted">—</span>';
+      var cls = r >= 1 ? 'ok' : (r < 0.01 ? 'bad' : 'warn');
+      return '<span class="badge ' + cls + '">' + (r * 100).toFixed(1) + '%</span>';
+    }
+    function filtered() {
+      return allRows().filter(function (r) {
+        if (ownerSel.value && r.owner !== ownerSel.value) return false;
+        if (regionSel.value && r.region !== regionSel.value) return false;
+        if (citySel.value && r.city !== citySel.value) return false;
+        if (bizMode !== 'all' && rowSettled(r)) return false;
+        return true;
+      }).sort(function (a, b) {
+        return rowAmount(b) - rowAmount(a) || a.city.localeCompare(b.city, 'zh');
+      });
+    }
+    function render() {
+      var showWm = bizMode !== 'tg';
+      var showTg = bizMode !== 'wm';
+      var rows = filtered();
+      var sumWm = rows.reduce(function (s, r) { return s + fmtNum(r.wmAmount); }, 0);
+      var sumTg = rows.reduce(function (s, r) { return s + fmtNum(r.tgAmount); }, 0);
+      var sumFocus = rows.reduce(function (s, r) { return s + rowAmount(r); }, 0);
+      var statHtml = '<div class="stat"><div class="l">显示城</div><div class="v">' + rows.length + '</div></div>';
+      if (showWm) {
+        statHtml += '<div class="stat warn"><div class="l">外卖待归还</div><div class="v">' +
+          Number(sumWm).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</div></div>';
+      }
+      if (showTg) {
+        statHtml += '<div class="stat warn"><div class="l">团购待归还</div><div class="v">' +
+          Number(sumTg).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</div></div>';
+      }
+      statHtml += '<div class="stat bad"><div class="l">' +
+        (bizMode === 'wm' ? '外卖剩余' : (bizMode === 'tg' ? '团购剩余' : '合计剩余')) +
+        '</div><div class="v">' +
+        Number(sumFocus).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+        '</div></div>';
+      stats.innerHTML = statHtml;
+
+      var head1 = '<tr>' +
+        '<th class="left" rowspan="2">区域负责人</th>' +
+        '<th class="left" rowspan="2">区域</th>' +
+        '<th class="left" rowspan="2">城市</th>';
+      var head2 = '<tr>';
+      if (showWm) { head1 += '<th class="grp" colspan="2">外卖</th>'; head2 += '<th class="num sub">待归还</th><th class="num sub">回款率</th>'; }
+      if (showTg) { head1 += '<th class="grp" colspan="2">团购</th>'; head2 += '<th class="num sub">待归还</th><th class="num sub">回款率</th>'; }
+      head1 += '<th class="sum-col" rowspan="2">' + (bizMode === 'all' ? '合计剩余' : '板块剩余') + '</th></tr>';
+      head2 += '</tr>';
+      thead.innerHTML = head1 + head2;
+
+      var colCount = 3 + (showWm ? 2 : 0) + (showTg ? 2 : 0) + 1;
+      function cellClass(i, n) {
+        if (i < 3) return 'left';
+        if (i === n - 1) return 'sum';
+        return 'num';
+      }
+      var body = rows.map(function (r) {
+        var amt = rowAmount(r);
+        var cls = amt > 0.01 ? 'low' : '';
+        var tds = [r.owner || '', r.region || '', r.city];
+        if (showWm) { tds.push(fmt(r.wmAmount), fmtRate(r.wmRate)); }
+        if (showTg) { tds.push(fmt(r.tgAmount), fmtRate(r.tgRate)); }
+        tds.push(Number(amt).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        return '<tr class="' + cls + '">' + tds.map(function (t, i) {
+          return '<td class="' + cellClass(i, tds.length) + '">' + t + '</td>';
+        }).join('') + '</tr>';
+      });
+      var totalTds = ['', '', '合计'];
+      if (showWm) { totalTds.push(fmt(sumWm), ''); }
+      if (showTg) { totalTds.push(fmt(sumTg), ''); }
+      totalTds.push(Number(sumFocus).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      body.push('<tr class="total">' + totalTds.map(function (t, i) {
+        return '<td class="' + cellClass(i, totalTds.length) + '">' + t + '</td>';
+      }).join('') + '</tr>');
+      tbody.innerHTML = body.join('') ||
+        '<tr><td colspan="' + colCount + '" class="left" style="color:#64748b">无匹配城市</td></tr>';
+      var sortTip = bizMode === 'wm' ? '按外卖待归还从高到低'
+        : (bizMode === 'tg' ? '按团购待归还从高到低' : '按合计待归还从高到低');
+      hint.textContent = '当前筛选 ' + rows.length + ' 城 · ' + sortTip;
+      metaNote.textContent = '截至 ' + ASOF_LABEL +
+        ' · 外卖源 ' + ((DATA.sources && DATA.sources['外卖']) || '') +
+        ' · 团购源 ' + ((DATA.sources && DATA.sources['团购']) || '');
+    }
+
+    function query() { refreshOptions(); render(); }
+    ownerSel.addEventListener('change', function () { regionSel.value = ''; citySel.value = ''; refreshOptions(); });
+    regionSel.addEventListener('change', function () { citySel.value = ''; refreshOptions(); });
+    document.getElementById('btnQuery').addEventListener('click', query);
+    document.getElementById('btnReset').addEventListener('click', function () {
+      ownerSel.value = ''; regionSel.value = ''; citySel.value = '';
+      bizMode = 'all';
+      document.querySelectorAll('.biz-toggle button').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-biz') === 'all');
+      });
+      refreshOptions(); render();
+    });
+    document.querySelectorAll('.biz-toggle button').forEach(function (btn) {
+      btn.addEventListener('click', function () { setBizMode(btn.getAttribute('data-biz')); });
+    });
+    refreshOptions();
+    render();
+  }
+
+  function showErr(e) {
+    var box = document.getElementById('errbox');
+    box.style.display = 'block';
+    box.textContent = '回款进度表加载失败：' + (e && e.message ? e.message : String(e));
+    console.error(e);
+  }
+
+  LoanBoardStore.ready().then(function () {
+    boot(LoanBoardStore.load('repayment'));
+    LoanBoardStore.onUpdate(function (msg) {
+      if (msg && msg.kind && msg.kind !== 'repayment') return;
+      location.reload();
+    });
+  }).catch(showErr);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "updatedAt": "2026-08-21T08:13:29.597238+00:00",
+  "repayment": {
+    "source": "shtml-sync",
+    "savedAt": "2026-08-21T08:13:29.561926+00:00",
+    "summary": {
+      "asOf": "2026-08-21",
+      "rows": 19
+    }
+  },
+  "anomaly": {
+    "source": "shtml-sync",
+    "savedAt": "2026-08-21T08:13:29.581656+00:00",
+    "summary": {
+      "maxDate": "2026-08-21",
+      "cities": 58,
+      "minDate": "2026-01-05"
+    }
+  },
+  "t7": {
+    "source": "a-order-update",
+    "savedAt": "2026-08-21T08:13:29.494454+00:00",
+    "summary": {
+      "generatedAt": "2026-08-21",
+      "periods": 3,
+      "lastDate": "2026-08-21",
+      "lastRows": 6
+    }
+  }
+}
